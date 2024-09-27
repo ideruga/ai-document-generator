@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}AI Document Generator{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <!-- Topic and Number of Chapters Input -->
+    <div id="input-section">
+        <h1 class="text-center mb-4"><i class="fas fa-robot"></i> AI Document Generator</h1>
+        <div class="card shadow">
+            <div class="card-body">
+                <form id="toc-form">
+                    <div class="form-group">
+                        <label for="description">Document Topic:</label>
+                        <input type="text" class="form-control" id="description" name="description" placeholder="Enter the topic" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="length">Number of Chapters:</label>
+                        <input type="number" class="form-control" id="length" name="length" min="1" placeholder="e.g., 10" required>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-block" id="generate-toc-btn">
+                        <i class="fas fa-list"></i> Generate Table of Contents
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Editable Table of Contents -->
+    <div id="toc-section" style="display: none;">
+        <h2 class="mt-5">Table of Contents</h2>
+        <div class="card shadow">
+            <div class="card-body">
+                <ul id="toc-list" class="list-group"></ul>
+                <button type="button" class="btn btn-success mt-3" id="generate-chapters-btn">
+                    <i class="fas fa-book"></i> Generate Chapters
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generated Chapters -->
+    <div id="chapters-section" style="display: none;">
+        <h2 class="mt-5">Generated Chapters</h2>
+        <div id="chapters"></div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="text-center mt-5">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+            <i class="fas fa-redo"></i> Start Over
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Handle Generate Table of Contents button click
+    document.getElementById('generate-toc-btn').addEventListener('click', function () {
+        var description = document.getElementById('description').value;
+        var length = document.getElementById('length').value;
+
+        if (!description || !length) {
+            alert('Please enter both the topic and number of chapters.');
+            return;
+        }
+
+        // Disable the button and show loading indicator
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+        // AJAX request to generate ToC
+        fetch('{{ url_for("generate_toc") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'description=' + encodeURIComponent(description) + '&length=' + length
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Display the ToC section
+            var tocSection = document.getElementById('toc-section');
+            var tocList = document.getElementById('toc-list');
+            tocList.innerHTML = '';
+
+            var chaptersSection = document.getElementById('chapters-section');
+            chaptersSection.style.display = 'none';
+
+            var chaptersDiv = document.getElementById('chapters');
+            chaptersDiv.innerHTML = '';
+
+            data.titles.forEach(function (title, index) {
+                var listItem = document.createElement('li');
+                listItem.className = 'list-group-item d-flex align-items-center';
+                listItem.setAttribute('data-index', index);
+
+                var titleSpan = document.createElement('span');
+                titleSpan.className = 'chapter-title editable flex-grow-1';
+                titleSpan.contentEditable = true;
+                titleSpan.innerText = title;
+
+                // Save changes when title editing is done
+                titleSpan.addEventListener('blur', function () {
+                    var newTitle = this.innerText;
+                    var chapterIndex = this.parentElement.getAttribute('data-index');
+
+                    // AJAX request to update chapter title
+                    fetch('{{ url_for("update_chapter_title") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: 'index=' + chapterIndex + '&title=' + encodeURIComponent(newTitle)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.success) {
+                            alert('Error updating chapter title.');
+                        }
+                    });
+                });
+
+                listItem.appendChild(titleSpan);
+                tocList.appendChild(listItem);
+            });
+
+            // Show the ToC section and Generate Chapters button
+            tocSection.style.display = 'block';
+
+            // Re-enable the button
+            document.getElementById('generate-toc-btn').disabled = false;
+            document.getElementById('generate-toc-btn').innerHTML = '<i class="fas fa-list"></i> Generate Table of Contents';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while generating the table of contents.');
+            document.getElementById('generate-toc-btn').disabled = false;
+            document.getElementById('generate-toc-btn').innerHTML = '<i class="fas fa-list"></i> Generate Table of Contents';
+        });
+    });
+
+    // Handle Generate Chapters button click
+    document.getElementById('generate-chapters-btn').addEventListener('click', function () {
+        // Disable the button and show loading indicator
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating Chapters...';
+
+        // AJAX request to generate all chapters
+        fetch('{{ url_for("generate_all_chapters") }}', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Display the chapters section
+            var chaptersSection = document.getElementById('chapters-section');
+            var chaptersDiv = document.getElementById('chapters');
+            chaptersDiv.innerHTML = '';
+
+            data.chapters.forEach(function (chapter, index) {
+                var chapterDiv = document.createElement('div');
+                chapterDiv.className = 'chapter mb-5';
+
+                var titleHeading = document.createElement('h3');
+                titleHeading.className = 'text-primary';
+                titleHeading.innerText = chapter.title;
+
+                var contentPara = document.createElement('p');
+                contentPara.innerText = chapter.content;
+
+                chapterDiv.appendChild(titleHeading);
+                chapterDiv.appendChild(contentPara);
+                chaptersDiv.appendChild(chapterDiv);
+            });
+
+            // Show the chapters section
+            chaptersSection.style.display = 'block';
+
+            // Re-enable the button
+            document.getElementById('generate-chapters-btn').disabled = false;
+            document.getElementById('generate-chapters-btn').innerHTML = '<i class="fas fa-book"></i> Generate Chapters';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while generating the chapters.');
+            document.getElementById('generate-chapters-btn').disabled = false;
+            document.getElementById('generate-chapters-btn').innerHTML = '<i class="fas fa-book"></i> Generate Chapters';
+        });
+    });
+});
+</script>
+{% endblock %}

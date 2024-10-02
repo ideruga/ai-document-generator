@@ -44,7 +44,7 @@ This is a Flask web application that interactively generates a structured docume
 ### Clone the Repository
 
 ```
-git clone https://github.com/yourusername/ai-document-generator.git
+git clone https://github.com/ideruga/ai-document-generator.git
 cd ai-document-generator
 ```
 

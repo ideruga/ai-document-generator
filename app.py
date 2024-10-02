@@ -59,15 +59,6 @@ def generate_toc():
     return jsonify({'titles': titles})
 
 
-def prepare_inputs(output_ch1):
-    print("PREPARING INPUTS!!!!!")
-    print(output_ch1)
-    return {
-        "chapter_name": "Chapter 2: Happy Ending",
-        "previous_chapters_summary": "Prince is a handsome guy"  # Pass the summary from Chapter 1
-    }
-
-
 @app.route('/generate_all_chapters', methods=['POST'])
 def generate_all_chapters():
     chapters = session.get('chapters', [])
@@ -102,8 +93,6 @@ def generate_all_chapters():
         content = aggregate_chain.invoke({"book_title": session['description'],
                                           "chapter_name": chapter,
                                           "summary": latest_summary})
-        print("Aggregated content:")
-        print(content)
         chapters[index]['content'] = content['document']
         chapters[index]['summary'] = content['summary']
         latest_summary = content['summary']
